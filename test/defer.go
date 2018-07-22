@@ -2,14 +2,13 @@ package main
 
 import (
 	"fmt"
-	"math/rand"
-	"time"
+
+	"github.com/dreamer-nitj/stringutils"
 )
 
 func main() {
 	defer fmt.Println("World")
 
 	fmt.Println("Hello ")
-	rand.Seed(time.Now().UnixNano())
-	fmt.Println("The random number is", rand.Intn(100))
+	fmt.Printf(stringutils.Reverse("!oG ,olleH"))
 }
