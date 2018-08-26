@@ -1,0 +1,13 @@
+version: "2"
+services:
+  node:
+    image: "nouchka/sqlite3"
+    stdin_open: true
+    tty: true
+    network_mode: "host"
+    #user: "node"
+    working_dir: /home/node/app
+    environment:
+      - NODE_ENV=production
+    volumes:
+      - ./:/root/app
