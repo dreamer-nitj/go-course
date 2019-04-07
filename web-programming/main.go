@@ -5,19 +5,26 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
-	"html/template"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 
 	"github.com/codegangsta/negroni"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/yosssi/ace"
 )
+
+// Book struct
+type Book struct {
+	PK             int
+	Title          string
+	Author         string
+	Classification string
+}
 
 // Page struct
 type Page struct {
-	Name     string
-	DBStatus bool
+	Books []Book
 }
 
 // SearchResult holds the result from search
@@ -57,19 +64,25 @@ func verifyDatabase(w http.ResponseWriter, r *http.Request, next http.HandlerFun
 }
 
 func main() {
-	templates := template.Must(template.ParseFiles("templates/index.html"))
-
 	db, _ = sql.Open("sqlite3", "dev.db")
 
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		p := Page{Name: "Gopher"}
-		if name := r.FormValue("name"); name != "" {
-			p.Name = name
+		template, err := ace.Load("templates/index", "", nil)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
-		p.DBStatus = db.Ping() == nil
-		if err := templates.ExecuteTemplate(w, "index.html", p); err != nil {
+
+		p := Page{Books: []Book{}}
+		rows, _ := db.Query("select pk,title,author,classification from books")
+		for rows.Next() {
+			var b Book
+			rows.Scan(&b.PK, &b.Title, &b.Author, &b.Classification)
+			p.Books = append(p.Books, b)
+		}
+
+		if err = template.Execute(w, p); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 		fmt.Fprintf(w, "Hello, Go web development")
@@ -97,10 +110,22 @@ func main() {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 
-		_, err = db.Exec("insert into books (pk, title, author, id, classification) values (?, ?, ?, ?, ?)",
+		result, err := db.Exec("insert into books (pk, title, author, id, classification) values (?, ?, ?, ?, ?)",
 			nil, book.BookData.Title, book.BookData.Author, book.BookData.ID, book.Classification.MostPopular)
 
 		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+
+		pk, _ := result.LastInsertId()
+		b := Book{
+			PK:             int(pk),
+			Title:          book.BookData.Title,
+			Author:         book.BookData.Author,
+			Classification: book.Classification.MostPopular,
+		}
+
+		if err := json.NewEncoder(w).Encode(b); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 	})
